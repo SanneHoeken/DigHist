@@ -99,9 +99,9 @@ if __name__ == '__main__':
     extract = True
 
     timebin = '1580-1603'
-    sent2encoding_path = f'../../../Data/DigHist/TimebinsProcessed/{timebin}-sentid2encoding.json' 
-    target2encoding_path = f'../../../Data/DigHist/{timebin}_targets2encoding.json'
-    target2usage_path = f'../../../Data/DigHist/{timebin}_targets2usages'
+    sent2encoding_path = f'../output/MacBERTh-encodings/{timebin}-sentid2encoding.json'
+    target2encoding_path = f'../output/MacBERTh-encodings/{timebin}_pairs2encoding.json'
+    target2usage_path = f'../output/MacBERTh-encodings/{timebin}_pairs2usages'
 
     main(sent2encoding_path, target2encoding_path, target2usage_path, model_name, 
          layer_selection=layer_selection, find=find, extract=extract)

@@ -3,7 +3,6 @@ import pandas as pd
 from transformers import AutoTokenizer
 from tqdm import tqdm
 
-
 def encode_sentences(data_path, tknzr):
 
     data = pd.read_csv(data_path)
@@ -53,12 +52,12 @@ if __name__ == '__main__':
     #datatype = 'sentences'
     #pairs = False
     #input_path = f'../../../Data/DigHist/TimebinsProcessed/{timebin}-sentences.csv'
-    #output_path = f'../../../Data/DigHist/TimebinsProcessed/{timebin}-sentid2encoding.json'
+    #output_path = f'../output/MacBERTh-encodings/{timebin}-sentid2encoding.json'
 
     datatype = 'targets'
-    pairs = False
-    input_path = f'../../../Data/DigHist/{timebin}_targets.txt'
-    output_path = f'../../../Data/DigHist/{timebin}_targets2encoding.json'
+    pairs = True
+    input_path = f'../data/{timebin}-pairs.txt'
+    output_path = f'../output/MacBERTh-encodings/{timebin}_pairs2encoding.json'
     
     main(input_path, output_path, model_name, datatype, pairs=pairs)
     

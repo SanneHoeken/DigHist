@@ -1,8 +1,8 @@
 import pickle, csv
 import pandas as pd
 
-timebin = '1485-1529' #'1485-1529' #'1530-1552' #'1580-1603'
-target2usage_path = f'../../../Data/DigHist/{timebin}_targets2usages'
+timebin = '1580-1603' #'1485-1529' #'1530-1552' #'1580-1603'
+target2usage_path = f'../../../Data/DigHist/{timebin}_hateterms2usages'
 
 with open(target2usage_path, 'rb') as infile:
     target2mentions = pickle.load(infile)
@@ -21,6 +21,7 @@ for t in target2mentions:
             if dic['id'] == sent_id:
                 output_data.append({
                     'target': t, 
+                    'sent_id': sent_id,
                     'sentence': dic['sentence'],
                     'year': dic['year'], 
                     'text': dic['text'], 
@@ -28,4 +29,4 @@ for t in target2mentions:
 
 output_data = pd.DataFrame(output_data)
 output_data = output_data.drop_duplicates(keep='first')
-output_data.to_csv(f'../../../Data/DigHist/{timebin}-targets-sentences.csv', index=False)
+output_data.to_csv(f'../../../Data/DigHist/{timebin}-hateterms-sentences.csv', index=False)
