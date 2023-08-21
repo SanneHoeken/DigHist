@@ -46,7 +46,7 @@ def main(input_path, output_path, model_name, datatype, pairs=False):
 
 if __name__ == '__main__':
     
-    timebin = '1580-1603'
+    timebin = '1530-1552'
     model_name = 'emanjavacas/MacBERTh'
 
     #datatype = 'sentences'
@@ -55,9 +55,9 @@ if __name__ == '__main__':
     #output_path = f'../output/MacBERTh-encodings/{timebin}-sentid2encoding.json'
 
     datatype = 'targets'
-    pairs = True
-    input_path = f'../data/{timebin}-pairs.txt'
-    output_path = f'../output/MacBERTh-encodings/{timebin}_pairs2encoding.json'
+    pairs = False
+    input_path = '../data/1530-1552-endingwiths-nouns_freq>=10-len>3.txt'
+    output_path = '../output/MacBERTh-encodings/1530-1552nouns2encoding.json'
     
     main(input_path, output_path, model_name, datatype, pairs=pairs)
     

@@ -1,4 +1,4 @@
-import torch, pickle, json, os
+import torch, pickle, json, os, random
 from transformers import AutoModel
 from tqdm import tqdm
 
@@ -22,7 +22,7 @@ def find_target_mentions(sent2encoding, target2encoding):
     return target2mentions
 
 
-def extract_representations(sent2encoding, target2mentions, model_name, layer_selection):                    
+def extract_representations(sent2encoding, target2mentions, model_name, layer_selection, sample):                    
     
         # load model
         model = AutoModel.from_pretrained(model_name, output_hidden_states=True)
@@ -30,7 +30,20 @@ def extract_representations(sent2encoding, target2mentions, model_name, layer_se
 
         # iterate over all sentence mentions of all target words
         for n, t in enumerate(target2mentions):
-            print(f"Extracting {len(target2mentions[t]['sent_ids'])} representations of '{t}' (target {n+1} out of {len(target2mentions)})...")
+            
+            n_usages = len(target2mentions[t]['sent_ids'])
+            
+            if sample:
+                selection = n_usages if n_usages < sample else sample
+                random_idx = random.sample(range(n_usages), selection)
+                sent_id_sample = [target2mentions[t]['sent_ids'][i] for i in random_idx]
+                target_idx_sample = [target2mentions[t]['target_idx'][i] for i in random_idx]
+                target2mentions[t]['sent_ids'] = sent_id_sample
+                target2mentions[t]['target_idx'] = target_idx_sample
+                print(f"Extracting {selection} out of {n_usages} representations of '{t}' (target {n+1} out of {len(target2mentions)})...")
+            else:
+                print(f"Extracting {n_usages} representations of '{t}' (target {n+1} out of {len(target2mentions)})...")
+
             for i, sent_id in enumerate(tqdm(target2mentions[t]['sent_ids'])):
 
                 # feed sentence encodings to the model    
@@ -62,7 +75,7 @@ def extract_representations(sent2encoding, target2mentions, model_name, layer_se
         
 
 def main(sent2encoding_path, target2encoding_path, target2usage_path, model_name, 
-         layer_selection='all', find=True, extract=True):
+         layer_selection='all', find=True, extract=True, sample=None):
      
     # get encoded sentences
     with open(sent2encoding_path, 'r') as infile:
@@ -84,7 +97,7 @@ def main(sent2encoding_path, target2encoding_path, target2usage_path, model_name
 
     # extract representations of target words mentions in sentences
     if extract:
-        target2vectors = extract_representations(sent2encoding, target2mentions, model_name, layer_selection)
+        target2vectors = extract_representations(sent2encoding, target2mentions, model_name, layer_selection, sample)
         with open(target2usage_path, 'wb') as outfile:
             pickle.dump(target2vectors, outfile)
         #for t in target2vectors:
@@ -95,13 +108,14 @@ if __name__ == '__main__':
 
     model_name = 'emanjavacas/MacBERTh'
     layer_selection = 'all'
-    find = True
-    extract = True
+    find = False
+    extract = False
+    sample = 100
 
-    timebin = '1580-1603'
+    timebin = '1530-1552'
     sent2encoding_path = f'../output/MacBERTh-encodings/{timebin}-sentid2encoding.json'
-    target2encoding_path = f'../output/MacBERTh-encodings/{timebin}_pairs2encoding.json'
-    target2usage_path = f'../output/MacBERTh-encodings/{timebin}_pairs2usages'
+    target2encoding_path = f'../output/MacBERTh-encodings/{timebin}nouns2encoding.json'
+    target2usage_path = f'../output/usages/{timebin}_nouns2usages'
 
     main(sent2encoding_path, target2encoding_path, target2usage_path, model_name, 
-         layer_selection=layer_selection, find=find, extract=extract)
+         layer_selection=layer_selection, find=find, extract=extract, sample=sample)

@@ -37,9 +37,9 @@ def main(input_path, output_path, wordpairs_file):
 
 if __name__ == '__main__':
 
-    input_path = f'../output/MacBERTh-encodings/1580-1603_pairs2usages'
-    output_path = f'../output/dimensions/dimension'
-    wordpairs_file = f'../data/1580-1603-pairs.txt'
+    input_path = '../output/usages/1580-1603_pairs2TENusages'
+    output_path = '../output/dimensions/dimension'
+    wordpairs_file = '../data/1580-1603-pairs.txt'
     
 
     main(input_path, output_path, wordpairs_file)
