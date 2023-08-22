@@ -1,7 +1,6 @@
 import pandas as pd
-from scipy.stats import pearsonr
-from sklearn.metrics import cohen_kappa_score
-
+from sklearn.metrics import cohen_kappa_score, classification_report, confusion_matrix
+from scipy.stats import chi2_contingency, pearsonr
 
 def process_annotation_file(annos_file, data_file, second_file=False):
 
@@ -66,7 +65,17 @@ def get_hate_annotations(df_annotations):
     return df_annos_unpaired
 
 
-def main(annos_files, data_file, jsd_file, projdiff_file, projections_file1, projections_file2):
+def get_classification_performance(gold, preds):
+    
+    print(classification_report(gold, preds))
+    cm = confusion_matrix(gold, preds)
+    tn, fp, fn, tp = cm.ravel()
+    obs = [[tn, fp], [fn, tp]]
+    acc_p = chi2_contingency(obs).pvalue
+    print('Chi squared test for accuracy:', round(acc_p, 3), '\n')
+
+
+def main(annos_files, data_file, jsd_file, projections_file1, projections_file2):
 
     df_annotations = process_annotation_file(annos_files[0], data_file)
 
@@ -75,18 +84,21 @@ def main(annos_files, data_file, jsd_file, projdiff_file, projections_file1, pro
         df_annotations2 = process_annotation_file(annos_files[1], data_file, second_file=True)
         merged_annotations = pd.merge(df_annotations, df_annotations2)
         #merged_annotations.to_csv('../other/annotations_merged.csv')
+        
         hate_column = pd.concat([merged_annotations['hate1'], merged_annotations['hate2']])
         hate_column_second = pd.concat([merged_annotations['hate1_second'], merged_annotations['hate2_second']])
         cohensk = cohen_kappa_score(hate_column, hate_column_second)
         corr, corr_p = pearsonr(hate_column, hate_column_second)
         print(f'Cohens Kappa for hate annotations (n = {len(hate_column)}): {round(cohensk, 3)}')
         print(f'Pearson correlation for hate annotations (n = {len(hate_column)}): {round(corr, 3)} (p = {round(corr_p, 3)})')
+        
         change_column = merged_annotations['semantic_relatedness']
         change_column_second = merged_annotations['semantic_relatedness_second']
         cohensk = cohen_kappa_score(change_column,change_column_second)
         corr, corr_p = pearsonr(change_column, change_column_second)
         print(f'Cohens Kappa for semantic relatedness annotations (n = {len(change_column)}): {round(cohensk, 3)}')
         print(f'Pearson correlation for semantic relatedness annotations (n = {len(hate_column)}): {round(corr, 3)} (p = {round(corr_p, 3)})')
+        
         merged_annotations['hate1'] = merged_annotations[['hate1', 'hate1_second']].mean(axis=1)
         merged_annotations['hate2'] = merged_annotations[['hate2', 'hate1_second']].mean(axis=1)
         merged_annotations['semantic_relatedness'] = merged_annotations[['semantic_relatedness', 'semantic_relatedness_second']].mean(axis=1)
@@ -113,38 +125,53 @@ def main(annos_files, data_file, jsd_file, projdiff_file, projections_file1, pro
     print(f'Pearson correlation between human hate ratings and projection values (n = {n}): {round(corr, 3)} (p = {round(corr_p, 3)})')
     #hate_merged_df.to_csv('../other/hate_values_merged.csv')
 
-    # HATE CHANGE
-    """
-    df_projdiff = pd.read_csv(projdiff_file)
-    df_typehate = hate_merged_df.groupby(['target', 'period']).mean()['hate']
-    hatediffs = []
-    for t in df_typehate.keys():
-        target = t[0]
-        diff = df_typehate[(target, 't1')] - df_typehate[(target, 't0')] if (
-            target, 't1') and (target, 't0') in df_typehate else None
-        hatediffs.append({'target': target, 'hatediff': diff})
-    df_hatediff = pd.DataFrame(hatediffs)
-    hatechange_merged_df = pd.merge(df_hatediff, df_projdiff).drop_duplicates()
-    corr, corr_p = pearsonr(hatechange_merged_df['hatediff'], hatechange_merged_df['projdiff'])
-    n = len(hatechange_merged_df['hatediff'])
-    print(f'Pearson correlation between human hate change ratings and projection difference values (n = {n}): {round(corr, 4)} (p = {round(corr_p, 4)})')
-    """
+    # DISCRETE CLASSES
+    change_merged_df = change_merged_df.set_index('target')
+    jsd_thres = change_merged_df['jsd'].mean()
+    compare_discrete = change_merged_df['compare'] < 4
+    jsd_discrete = change_merged_df['jsd'] > jsd_thres
+    hate_discrete = hate_merged_df['hate'] > 0
+    projection_discrete = hate_merged_df['projection'] > 0
+
+    # COMBINE SEMANTIC CHANGE AND HATE
+    typehate_merged_df = hate_merged_df.groupby('target').mean(numeric_only=True)
+    typehate_discrete = typehate_merged_df['hate'] > 0
+    typeprojection_discrete = typehate_merged_df['projection'] > 0
+    hate_compare = typehate_discrete & compare_discrete
+    projection_jsd = typeprojection_discrete & jsd_discrete
     
+    # CLASSIFICATION EVALUATIONS
+    print('Classification performance for semantic change:')
+    get_classification_performance(compare_discrete, jsd_discrete)
+    print('Classification performance for hatefulness:')
+    get_classification_performance(hate_discrete, projection_discrete)
+    print('Classification performance for combined hate and semantic change:')
+    get_classification_performance(hate_compare, projection_jsd)
+    print('Terms annotated as hateful ánd semantically changed:', sorted([k for k, v in hate_compare.items() if (v == True)]))
+    print('Correct predicted terms as hateful ánd semantically changed:', sorted([k for k, v in hate_compare.items() if (v == True and projection_jsd[k] == True)]))
+
+    # ERROR ANALYSIS
+    print('SemChange-FN:', sorted([k for k, v in compare_discrete.items() if (v == True and jsd_discrete[k] == False)]))
+    print('SemChange-FP:', sorted([k for k, v in compare_discrete.items() if (v == False and jsd_discrete[k] == True)]))
+    print('Hate-FN:', sorted([k for k, v in typehate_discrete.items() if (v == True and typeprojection_discrete[k] == False)]))
+    print('Hate-FP:', sorted([k for k, v in typehate_discrete.items() if (v == False and typeprojection_discrete[k] == True)]))
+    print('HateChange-FN:', sorted([k for k, v in hate_compare.items() if (v == True and projection_jsd[k] == False)]))
+    print('HateChange-FP:', sorted([k for k, v in hate_compare.items() if (v == False and projection_jsd[k] == True)]))
+
     # MERGE ALL
     #all_merged_df = pd.merge(hatechange_merged_df, change_merged_df).set_index('target')
-    typehate_merged_df = hate_merged_df.drop('sent_id', axis=1).groupby('target').mean(numeric_only=True)
-    change_merged_df = change_merged_df.drop(['later', 'delta_later', 'earlier'], axis=1).set_index('target')
-    all_merged_df = pd.merge(change_merged_df, typehate_merged_df, left_index=True, right_index=True)
+    #change_merged_df = change_merged_df.drop(['later', 'delta_later', 'earlier'], axis=1).set_index('target')
+    #all_merged_df = pd.merge(change_merged_df, typehate_merged_df, left_index=True, right_index=True)
     #all_merged_df.to_csv('../other/all_values_merged.csv')
     
 
 if __name__ == '__main__':
 
     annos_files = ['../other/HHSCD_annotations_Sophie.csv', '../other/HHSCD_annotations500_Melvin.csv'] # max two 
+    #annos_files = ['../other/HHSCD_annotations500_Melvin.csv'] 
     data_file = '../data/1530-1552_1580-1603_testset-usage-pairs.csv'
     jsd_file = '../output/results/jsd-1530-1552_1580-1603_nouns.csv'
-    projdiff_file = '../output/results/projdiff-1530-1552_1580-1603_nouns.csv'
     projections_file1 = '../output/results/1530-1552_nouns_projections.csv'
     projections_file2 = '../output/results/1580-1603_nouns_projections.csv'
 
-    main(annos_files, data_file, jsd_file, projdiff_file, projections_file1, projections_file2)
+    main(annos_files, data_file, jsd_file, projections_file1, projections_file2)
